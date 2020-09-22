@@ -17,7 +17,6 @@ def resolve_bag_of_text_markup_or_widgets(items):
     """
     res = []
     curr_text_markup = []
-    __import__('pdb').set_trace()
     for item in items:
         if isinstance(item, tuple) or isinstance(item, str):
             curr_text_markup.append(item)
@@ -168,6 +167,28 @@ def styled_text(text, new_styles, old_styles=None, supplement_style=False):
     return (spec, text)
 
 
+def pile_or_listbox_add(container, widgets):
+    """Add the widget/widgets to the container
+    """
+    if isinstance(container, urwid.ListBox):
+        return listbox_add(container, widgets)
+    elif isinstance(container, urwid.Pile):
+        return pile_add(container, widgets)
+    else:
+        raise ValueError("Container was not listbox, nor pile")
+
+
+def listbox_add(listbox, widgets):
+    if not isinstance(widgets, list):
+        widgets = [widgets]
+
+    for w in widgets:
+        if len(listbox.body) > 0 \
+                and isinstance(w, urwid.Divider) \
+                and isinstance(listbox.body[-1], urwid.Divider):
+            continue
+        listbox.body.append(w)
+
 def pile_add(pile, widgets):
     """
     """
@@ -227,3 +248,14 @@ def translate_color(raw_text):
         formated_text.append((urwid.AttrSpec(fgcolor, bgcolor), text))
 
     return formated_text
+
+def int_to_roman(integer):
+    integer = int(integer)
+    ints = [1000, 900,  500, 400, 100,  90, 50,  40, 10,  9,   5,  4,   1]
+    nums = ["m",  "cm", "d", "cd","c", "xc","l","xl","x","ix","v","iv","i"]
+    result = []
+    for i in range(len(ints)):
+        count = integer // ints[i]
+        result.append(nums[i] * count)
+        integer -= ints[i] * count
+    return "".join(result)

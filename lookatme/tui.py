@@ -15,7 +15,7 @@ import lookatme.config
 import lookatme.config as config
 import lookatme.contrib
 import lookatme.render.markdown_block as lam_md
-from lookatme.utils import pile_add, spec_from_style
+from lookatme.utils import pile_or_listbox_add, spec_from_style
 
 
 def text(style, data, align="left"):
@@ -139,9 +139,22 @@ class SlideRenderer(threading.Thread):
         self._log.debug(f"Rendering slide {slide_num}")
         start = time.time()
 
-        tmp_pile = urwid.Pile([])
-        stack = [tmp_pile]
-        for token in to_render.tokens:
+        # initial processing loop - results are discarded, but render functions
+        # may add extra metadata to the token itself. For example, list rendering
+        # uses this to determine the max indent size for each level.
+        tokens = to_render.tokens
+        self._render_tokens(tokens)
+        res = self._render_tokens(tokens)
+
+        total = time.time() - start
+        self._log.debug(f"Rendered slide {slide_num} in {total}")
+
+        return res
+    
+    def _render_tokens(self, tokens):
+        tmp_listbox = urwid.ListBox([])
+        stack = [tmp_listbox]
+        for token in tokens:
             self._log.debug(f"{'  '*len(stack)}Rendering token {token}")
 
             last_stack = stack[-1]
@@ -154,19 +167,17 @@ class SlideRenderer(threading.Thread):
                 self._propagate_meta(last_stack, stack[-1])
             if res is None:
                 continue
-            pile_add(last_stack, res)
+            pile_or_listbox_add(last_stack, res)
 
-        total = time.time() - start
-        self._log.debug(f"Rendered slide {slide_num} in {total}")
-
-        return tmp_pile.contents
+        return tmp_listbox.body
 
 
 class MarkdownTui(urwid.Frame):
     def __init__(self, pres, start_idx=0):
         """
         """
-        self.slide_body = urwid.Pile(urwid.SimpleListWalker([urwid.Text("test")]))
+        #self.slide_body = urwid.Pile(urwid.SimpleListWalker([urwid.Text("test")]))
+        self.slide_body = urwid.ListBox(urwid.SimpleFocusListWalker([urwid.Text("test")]))
         self.slide_title = text("", "", "center")
 
         self.creation = text("", "")
@@ -192,7 +203,7 @@ class MarkdownTui(urwid.Frame):
 
         urwid.Frame.__init__(
             self,
-            urwid.Padding(urwid.Filler(self.slide_body, valign="top", top=2), left=10, right=10),
+            urwid.Padding(self.slide_body, left=10, right=10),
             self.slide_title,
             self.slide_footer,
         )
@@ -244,7 +255,7 @@ class MarkdownTui(urwid.Frame):
         """Render the provided slide body
         """
         rendered = self.slide_renderer.render_slide(self.curr_slide)
-        self.slide_body.contents = rendered
+        self.slide_body.body = rendered
 
     def update(self):
         """
@@ -266,18 +277,18 @@ class MarkdownTui(urwid.Frame):
     def keypress(self, size, key):
         """Handle keypress events
         """
+        self._log.debug(f"KEY: {key}")
         try:
-            res = urwid.Frame.keypress(self, size, key)
-            if res is None:
+            key = urwid.Frame.keypress(self, size, key)
+            if key is None:
                 return
-            size, key = res
         except:
             pass
 
         slide_direction = 0
-        if key in ["left", "up", "backspace", "delete", "h", "k"]:
+        if key in ["left", "backspace", "delete", "h", "k"]:
             slide_direction = -1
-        elif key in ["right", "down", " ", "j", "l"]:
+        elif key in ["right", " ", "j", "l"]:
             slide_direction = 1
         elif key in ["q", "Q"]:
             lookatme.contrib.shutdown_contribs()
