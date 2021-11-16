@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 import sys
+from argparse import ArgumentParser
+
+argparser = ArgumentParser()
 
 dry_run = False
 for arg in sys.argv[1:]:
